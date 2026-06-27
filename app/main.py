@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hmac
-import logging
 import threading
 import time
 from pathlib import Path
@@ -16,7 +15,8 @@ from starlette.datastructures import UploadFile
 from . import config
 from .tools import REGISTRY, JsonResult, families
 
-logger = logging.getLogger("tools")
+# No application logger by design: this platform keeps no record of activity.
+# (Request/access logging is disabled at the uvicorn level — see Dockerfile.)
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -52,9 +52,9 @@ def _is_rate_limited(ip: str) -> bool:
 
 
 def _record_failure(ip: str) -> None:
+    # Counters live in memory only (for rate limiting) and are never logged.
     with _failures_lock:
         _failures.setdefault(ip, []).append(time.time())
-    logger.warning("Failed auth attempt from %s", ip)
 
 
 # --- CSRF (Origin/Referer check on state-changing requests) -------------------
@@ -110,7 +110,9 @@ async def auth_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = CSP
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    # Never let a browser, proxy, or CDN cache anyone's files or results.
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
 
@@ -150,34 +152,39 @@ async def run_tool(request: Request, tool_id: str):
     if not uploads:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
+    # Everything below stays in memory. The `finally` closes each UploadFile,
+    # which deletes any transient on-disk spool immediately — so no upload, and
+    # no intermediate artifact, ever outlives the request.
     files: list[tuple[str, bytes]] = []
-    total = 0
-    for up in uploads:
-        data = await up.read()
-        total += len(data)
-        if total > config.MAX_UPLOAD_BYTES:
-            raise HTTPException(status_code=413, detail="Upload too large")
-        files.append((up.filename or "file", data))
-
-    opts = {
-        opt.name: form.get(opt.name, opt.default)
-        for opt in tool.options
-    }
-
     try:
-        result = tool.run(files, opts)
-    except HTTPException:
-        raise
-    except Exception as exc:  # tool failures must not 500 the portal
-        logger.exception("Tool %s failed", tool_id)
-        raise HTTPException(status_code=422, detail=f"Could not process file: {exc}")
+        total = 0
+        for up in uploads:
+            data = await up.read()
+            total += len(data)
+            if total > config.MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail="Upload too large")
+            files.append((up.filename or "file", data))
 
-    if isinstance(result, JsonResult):
-        return JSONResponse({"render": result.render, **result.payload})
+        opts = {opt.name: form.get(opt.name, opt.default) for opt in tool.options}
 
-    safe_name = Path(result.filename).name
-    return Response(
-        content=result.data,
-        media_type=result.media_type,
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
-    )
+        try:
+            result = tool.run(files, opts)
+        except HTTPException:
+            raise
+        except Exception as exc:  # tool failures must not 500 the portal
+            # The reason goes to the user only; we keep no server-side log of it.
+            raise HTTPException(status_code=422, detail=f"Could not process file: {exc}")
+
+        if isinstance(result, JsonResult):
+            return JSONResponse({"render": result.render, **result.payload})
+
+        safe_name = Path(result.filename).name
+        return Response(
+            content=result.data,
+            media_type=result.media_type,
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        )
+    finally:
+        for up in uploads:
+            await up.close()  # removes the temp spool file, if any
+        files.clear()

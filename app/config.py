@@ -1,11 +1,14 @@
 import os
 
-# Where temporary/working files live (Docker volume mount).
-DATA_DIR = os.environ.get("DATA_DIR", "/data")
-TMP_DIR = os.path.join(DATA_DIR, "tmp")
-
 # External URL where the portal is reachable (used for absolute links if needed).
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
+
+# --- Privacy ------------------------------------------------------------------
+# This platform is deliberately stateless: uploads are processed in memory and
+# discarded the instant a response is sent. Nothing is written to disk and no
+# record of activity is kept. Request logging is OFF by default so we never
+# learn what anyone does here; set ACCESS_LOG=true only for local debugging.
+ACCESS_LOG = os.environ.get("ACCESS_LOG", "false").lower() == "true"
 
 # --- Auth ---------------------------------------------------------------------
 # HTTP Basic Auth. Single credential by default; AUTH_USERS takes precedence and

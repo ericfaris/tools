@@ -7,20 +7,27 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8200:8000"
-    volumes:
-      - ./data:/data
+
+    # Ephemeral by construction: the root filesystem is read-only so nothing can
+    # be persisted, and /tmp is an in-memory tmpfs that vanishes on restart and
+    # never touches disk. There is no volume — nobody's documents can live here.
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+
     environment:
       # External URL where the portal is reachable (via Cloudflare Tunnel)
       - BASE_URL=https://tools.mooseflip.com
 
-      # Single-credential HTTP Basic Auth (set in .env file)
+      # HTTP Basic Auth. For friends & family, give each person their own
+      # credential: AUTH_USERS=alice:pass1,bob:pass2 (takes precedence).
+      - AUTH_USERS=${AUTH_USERS:-}
+      # Single-credential fallback.
       - AUTH_USER=${AUTH_USER:-}
       - AUTH_PASS=${AUTH_PASS:-}
-      # Multi-user alternative (takes precedence): AUTH_USERS=alice:p1,bob:p2
-      - AUTH_USERS=${AUTH_USERS:-}
 
       # Max upload size per request, in bytes (default 100 MB)
       - MAX_UPLOAD_BYTES=${MAX_UPLOAD_BYTES:-104857600}
 
-      # Internal working directory — leave as-is
-      - DATA_DIR=/data
+      # Request/access logging stays OFF so we never learn what anyone does.
+      - ACCESS_LOG=${ACCESS_LOG:-false}

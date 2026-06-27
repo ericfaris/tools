@@ -177,6 +177,11 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+.footer {
+  text-align: center; color: var(--muted); font-size: .85rem;
+  padding: 2rem 1rem 2.5rem; border-top: 1px solid var(--line); margin-top: 3rem;
+}
+
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -170,11 +170,12 @@ direct template (Python/FastAPI self-hosted Docker app), so we mirror it.
   slipcast security hardening carried over: CSRF Origin/Referer check on
   state-changing requests, rate limiting on failed auth attempts, and a strict
   `Content-Security-Policy` header.
-- **Config & data:** env-var driven via `config.py`; `DATA_DIR=/data` mounted as
-  a Docker volume for any persistent/temporary working files.
+- **Config & data:** env-var driven via `config.py`. **No data volume** — the
+  platform is stateless (see §8). All processing happens in memory.
 - **Packaging & deploy:** **Docker** — `docker compose up`, image published as
   `ericfaris/tools:latest`, container bound to `127.0.0.1:<port>`,
-  `restart: unless-stopped`, `./data:/data` volume. The image bundles all the
+  `restart: unless-stopped`, **`read_only` root filesystem + in-memory `/tmp`
+  tmpfs, no volume**. The image bundles all the
   heavy system tools (ImageMagick, Ghostscript, ffmpeg, LibreOffice, Tesseract)
   so there's no host setup.
 - **CI/release (mirrors slipcast):** GitHub Actions runs `pytest` on PRs and
@@ -191,8 +192,14 @@ direct template (Python/FastAPI self-hosted Docker app), so we mirror it.
 
 ## 8. Non-functional requirements
 
-- **Privacy/retention:** Temp files auto-deleted promptly after a job (and on a
-  sweep timer). No analytics, no third-party calls, no telemetry.
+- **Privacy/retention (zero-retention guarantee):** Uploads and intermediate
+  artifacts live only in memory for one request and are discarded the instant
+  the response is sent; uploads are explicitly closed even on failure. Nothing
+  is persisted (read-only FS, in-memory `/tmp`, no volume), nothing is cached
+  (`Cache-Control: no-store`), and nothing is logged (no access log, no activity
+  logger). No analytics, no third-party calls, no telemetry. The owner cannot
+  see what users do. Safe to share with friends and family. Enforced by
+  `tests/test_privacy.py`.
 - **Security (mirrors slipcast):** HTTP Basic Auth on all non-public routes;
   CSRF Origin/Referer check on state-changing requests; rate limiting on failed
   auth; strict `Content-Security-Policy`; container bound to `127.0.0.1`;
@@ -234,8 +241,8 @@ These are the house patterns this repo follows so it feels consistent with the
 rest of the fleet:
 
 - **Self-hosted Docker app**, image `ericfaris/tools:latest`, `docker-compose.yml`
-  with `restart: unless-stopped`, `./data:/data` volume, port bound to
-  `127.0.0.1:<port>`.
+  with `restart: unless-stopped`, `read_only` root + tmpfs `/tmp` (no volume),
+  port bound to `127.0.0.1:<port>`.
 - **Remote access** via **Cloudflare Tunnel** to `tools.mooseflip.com`
   (documented in a `CLOUDFLARE_TUNNEL.md`, as in slipcast).
 - **HTTP Basic Auth** + security hardening (CSRF, rate limiting, CSP).

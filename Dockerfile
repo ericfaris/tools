@@ -14,8 +14,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 
-ENV DATA_DIR=/data
+# Don't write .pyc files, and send transient temp spills to /tmp (mounted as an
+# in-memory tmpfs by docker-compose, so even those never touch disk).
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    TMPDIR=/tmp
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-access-log: we keep no record of who used the platform or what they did.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

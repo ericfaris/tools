@@ -58,11 +58,34 @@ All config is via environment variables (see `app/config.py` / `.env.example`):
 | `AUTH_USERS` | — | `user:pass,user2:pass2` multi-user (takes precedence) |
 | `BASE_URL` | `http://localhost:8000` | Public URL of the portal |
 | `MAX_UPLOAD_BYTES` | `104857600` | Max upload size per request (100 MB) |
-| `DATA_DIR` | `/data` | Working directory (Docker volume) |
+| `ACCESS_LOG` | `false` | Request logging — leave off; `true` only for local debugging |
 
 **Security:** HTTP Basic Auth on all non-public routes, CSRF Origin/Referer
 checks on state-changing requests, failed-auth rate limiting, a strict
 Content-Security-Policy, and a `127.0.0.1`-only bind.
+
+---
+
+## Privacy & ephemerality
+
+This is a deliberately **stateless, zero-retention** platform — safe to share
+with friends and family. Their documents are theirs; the server never keeps them
+and never learns what anyone did.
+
+- **Processed in memory, then gone.** Uploads and every intermediate artifact
+  live only in RAM for the duration of one request. The only thing that leaves
+  the server is the result you download.
+- **Explicit cleanup.** Each upload is closed in a `finally` block, deleting any
+  transient temp spool the instant the response is sent — even if the tool fails.
+- **No logs.** Request/access logging is off by default (`--no-access-log`), and
+  the app keeps no activity logger. Failed-auth counters live in memory only.
+- **No caching.** Every response sends `Cache-Control: no-store` so nothing is
+  cached by browsers, proxies, or CDNs.
+- **No persistence by construction.** In Docker the root filesystem is
+  `read_only`, `/tmp` is an in-memory `tmpfs`, and there is **no volume** — there
+  is physically nowhere for a document to be stored.
+
+These guarantees are covered by regression tests in `tests/test_privacy.py`.
 
 ---
 
