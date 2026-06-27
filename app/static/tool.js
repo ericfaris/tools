@@ -8,6 +8,8 @@
   const list = document.getElementById("file-list");
   const runBtn = document.getElementById("run-btn");
   const errorEl = document.getElementById("error");
+  const resultEl = document.getElementById("result");
+  const toastEl = document.getElementById("toast");
   const multiple = form.dataset.multiple === "true";
   const action = form.dataset.action;
 
@@ -49,6 +51,8 @@
     e.preventDefault();
     if (!input.files.length) return;
     errorEl.hidden = true;
+    resultEl.hidden = true;
+    resultEl.innerHTML = "";
     runBtn.classList.add("busy");
     runBtn.disabled = true;
 
@@ -60,9 +64,16 @@
         try { detail = (await res.json()).detail || detail; } catch (_) {}
         throw new Error(detail);
       }
-      const blob = await res.blob();
-      const name = filenameFrom(res.headers.get("Content-Disposition")) || "result";
-      downloadBlob(blob, name);
+
+      const type = res.headers.get("Content-Type") || "";
+      if (type.includes("application/json")) {
+        renderInline(await res.json());
+      } else {
+        const blob = await res.blob();
+        const name = filenameFrom(res.headers.get("Content-Disposition")) || "result";
+        downloadBlob(blob, name);
+        showResultNote(`Done — downloaded <strong>${name}</strong>`);
+      }
       celebrate();
     } catch (err) {
       errorEl.textContent = err.message || "Something went wrong.";
@@ -72,6 +83,56 @@
       runBtn.disabled = input.files.length === 0;
     }
   });
+
+  // --- Inline results --------------------------------------------------------
+  function showResultNote(html) {
+    resultEl.innerHTML = `<p class="result-note">${html}</p>`;
+    resultEl.hidden = false;
+  }
+
+  function renderInline(data) {
+    if (data.render === "palette") return renderPalette(data.colors || []);
+    showResultNote("Done.");
+  }
+
+  function renderPalette(colors) {
+    resultEl.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "swatches";
+    for (const c of colors) {
+      const sw = document.createElement("button");
+      sw.type = "button";
+      sw.className = "swatch";
+      sw.style.setProperty("--c", c.hex);
+      sw.innerHTML = `<span class="chip" style="background:${c.hex}"></span><code>${c.hex}</code>`;
+      sw.title = `Copy ${c.hex}`;
+      sw.addEventListener("click", () => copy(c.hex));
+      grid.appendChild(sw);
+    }
+    resultEl.appendChild(grid);
+    resultEl.hidden = false;
+  }
+
+  async function copy(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`Copied ${text}`);
+    } catch (_) {
+      toast("Copy failed");
+    }
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove("show");
+      setTimeout(() => (toastEl.hidden = true), 250);
+    }, 1400);
+  }
 
   function filenameFrom(header) {
     if (!header) return null;

@@ -30,13 +30,25 @@ class Option:
 
 @dataclass
 class Result:
+    """A downloadable file produced by a tool."""
     data: bytes
     filename: str
     media_type: str
 
 
-# run(files, opts) -> Result
-RunFn = Callable[[list[tuple[str, bytes]], dict[str, Any]], Result]
+@dataclass
+class JsonResult:
+    """An inline result rendered in the page rather than downloaded.
+
+    `render` names the client-side renderer (e.g. "palette"); `payload` is the
+    data it renders.
+    """
+    render: str
+    payload: dict[str, Any]
+
+
+# run(files, opts) -> Result | JsonResult
+RunFn = Callable[[list[tuple[str, bytes]], dict[str, Any]], "Result | JsonResult"]
 
 
 @dataclass

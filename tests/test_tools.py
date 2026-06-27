@@ -25,7 +25,8 @@ def _make_image(fmt: str = "PNG", color=(255, 0, 0)) -> bytes:
 
 
 def test_registry_has_expected_tools():
-    for tid in ("pdf-merge", "pdf-split", "image-convert", "images-to-pdf"):
+    for tid in ("pdf-merge", "pdf-split", "image-convert", "images-to-pdf",
+                "favicon", "color-palette"):
         assert tid in REGISTRY
 
 
@@ -59,3 +60,24 @@ def test_images_to_pdf():
     result = tool.run(files, {})
     assert result.media_type == "application/pdf"
     assert len(PdfReader(io.BytesIO(result.data)).pages) == 2
+
+
+def test_favicon_zip_contains_expected_files():
+    tool = REGISTRY["favicon"]
+    result = tool.run([("logo.png", _make_image("PNG"))], {})
+    assert result.media_type == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(result.data)) as z:
+        names = set(z.namelist())
+    assert {"favicon.ico", "favicon-32x32.png", "apple-touch-icon.png",
+            "icon-512.png", "head-snippet.html"} <= names
+
+
+def test_color_palette_extracts_dominant_color():
+    tool = REGISTRY["color-palette"]
+    # Solid red image -> red should dominate the palette.
+    result = tool.run([("red.png", _make_image("PNG", (255, 0, 0)))], {"count": "4"})
+    assert result.render == "palette"
+    colors = result.payload["colors"]
+    assert colors, "expected at least one color"
+    assert colors[0]["hex"] == "#ff0000"
+    assert colors[0]["rgb"] == [255, 0, 0]

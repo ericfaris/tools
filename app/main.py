@@ -8,13 +8,13 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile
 
 from . import config
-from .tools import REGISTRY, families
+from .tools import REGISTRY, JsonResult, families
 
 logger = logging.getLogger("tools")
 
@@ -171,6 +171,9 @@ async def run_tool(request: Request, tool_id: str):
     except Exception as exc:  # tool failures must not 500 the portal
         logger.exception("Tool %s failed", tool_id)
         raise HTTPException(status_code=422, detail=f"Could not process file: {exc}")
+
+    if isinstance(result, JsonResult):
+        return JSONResponse({"render": result.render, **result.payload})
 
     safe_name = Path(result.filename).name
     return Response(
