@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ tool.name }} · Tools{% endblock %}
+
+{% block headerextra %}
+  <a class="back" href="/">← All tools</a>
+{% endblock %}
+
+{% block content %}
+  <section class="tool-head">
+    <span class="tool-icon">{{ tool.icon }}</span>
+    <div>
+      <h1>{{ tool.name }}</h1>
+      <p>{{ tool.description }}</p>
+    </div>
+  </section>
+
+  <form id="tool-form" class="tool-form"
+        data-action="/api/tools/{{ tool.id }}"
+        data-multiple="{{ 'true' if tool.multiple else 'false' }}">
+
+    <label class="dropzone" id="dropzone" tabindex="0">
+      <input id="file-input" type="file" name="files"
+             accept="{{ tool.accept }}" {% if tool.multiple %}multiple{% endif %} hidden>
+      <span class="dz-icon">⬇</span>
+      <span class="dz-text">Drop {{ 'files' if tool.multiple else 'a file' }} here</span>
+      <span class="dz-sub">or click to browse</span>
+      <ul class="dz-list" id="file-list"></ul>
+    </label>
+
+    {% if tool.options %}
+    <div class="options">
+      {% for opt in tool.options %}
+      <div class="option">
+        <label for="opt-{{ opt.name }}">{{ opt.label }}</label>
+        {% if opt.type == "select" %}
+          <select id="opt-{{ opt.name }}" name="{{ opt.name }}">
+            {% for value, label in opt.choices %}
+            <option value="{{ value }}" {% if value == opt.default %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        {% elif opt.type == "checkbox" %}
+          <input id="opt-{{ opt.name }}" type="checkbox" name="{{ opt.name }}" value="true" {% if opt.default %}checked{% endif %}>
+        {% else %}
+          <input id="opt-{{ opt.name }}" type="{{ opt.type }}" name="{{ opt.name }}" value="{{ opt.default or '' }}">
+        {% endif %}
+        {% if opt.help %}<small>{{ opt.help }}</small>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <button type="submit" id="run-btn" class="run" disabled>
+      <span class="run-label">Run</span>
+      <span class="run-spinner" aria-hidden="true"></span>
+    </button>
+    <p class="error" id="error" hidden></p>
+  </form>
+
+  <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/tool.js"></script>
+{% endblock %}

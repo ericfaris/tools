@@ -1,0 +1,26 @@
+name: tools
+
+services:
+  app:
+    build: .
+    image: ericfaris/tools:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8200:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      # External URL where the portal is reachable (via Cloudflare Tunnel)
+      - BASE_URL=https://tools.mooseflip.com
+
+      # Single-credential HTTP Basic Auth (set in .env file)
+      - AUTH_USER=${AUTH_USER:-}
+      - AUTH_PASS=${AUTH_PASS:-}
+      # Multi-user alternative (takes precedence): AUTH_USERS=alice:p1,bob:p2
+      - AUTH_USERS=${AUTH_USERS:-}
+
+      # Max upload size per request, in bytes (default 100 MB)
+      - MAX_UPLOAD_BYTES=${MAX_UPLOAD_BYTES:-104857600}
+
+      # Internal working directory — leave as-is
+      - DATA_DIR=/data

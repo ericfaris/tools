@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Tools{% endblock %}
+
+{% block headerextra %}
+  <input id="filter" class="filter" type="search" placeholder="Search tools…" autocomplete="off" aria-label="Search tools">
+{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>Your tools. <span class="grad">Your machine.</span></h1>
+    <p>Clean, private, no-nonsense utilities — that happen to feel great to use.</p>
+  </section>
+
+  {% for family, tools in grouped.items() %}
+  <section class="family" data-family="{{ family }}">
+    <h2 class="family-title">{{ family }}</h2>
+    <div class="grid">
+      {% for tool in tools %}
+      <a class="tile" href="/tools/{{ tool.id }}"
+         data-name="{{ tool.name|lower }} {{ tool.description|lower }}"
+         style="--i: {{ loop.index0 }}">
+        <span class="tile-icon">{{ tool.icon }}</span>
+        <span class="tile-name">{{ tool.name }}</span>
+        <span class="tile-desc">{{ tool.description }}</span>
+        <span class="tile-arrow">→</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+
+  <p class="empty" hidden>No tools match “<span id="empty-q"></span>”.</p>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/filter.js"></script>
+{% endblock %}

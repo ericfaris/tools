@@ -1,0 +1,139 @@
+// Drag-and-drop, submit-via-fetch, download, and a celebratory finish.
+(function () {
+  const form = document.getElementById("tool-form");
+  if (!form) return;
+
+  const input = document.getElementById("file-input");
+  const dropzone = document.getElementById("dropzone");
+  const list = document.getElementById("file-list");
+  const runBtn = document.getElementById("run-btn");
+  const errorEl = document.getElementById("error");
+  const multiple = form.dataset.multiple === "true";
+  const action = form.dataset.action;
+
+  function setFiles(fileList) {
+    const dt = new DataTransfer();
+    const files = multiple ? [...fileList] : fileList.length ? [fileList[0]] : [];
+    files.forEach((f) => dt.items.add(f));
+    input.files = dt.files;
+    render();
+  }
+
+  function render() {
+    list.innerHTML = "";
+    for (const f of input.files) {
+      const li = document.createElement("li");
+      li.textContent = f.name;
+      list.appendChild(li);
+    }
+    runBtn.disabled = input.files.length === 0;
+  }
+
+  dropzone.addEventListener("click", () => input.click());
+  dropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+  });
+  input.addEventListener("change", () => render());
+
+  ["dragenter", "dragover"].forEach((ev) =>
+    dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("dragover"); })
+  );
+  ["dragleave", "drop"].forEach((ev) =>
+    dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove("dragover"); })
+  );
+  dropzone.addEventListener("drop", (e) => {
+    if (e.dataTransfer?.files?.length) setFiles(e.dataTransfer.files);
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!input.files.length) return;
+    errorEl.hidden = true;
+    runBtn.classList.add("busy");
+    runBtn.disabled = true;
+
+    try {
+      const data = new FormData(form);
+      const res = await fetch(action, { method: "POST", body: data });
+      if (!res.ok) {
+        let detail = `Error ${res.status}`;
+        try { detail = (await res.json()).detail || detail; } catch (_) {}
+        throw new Error(detail);
+      }
+      const blob = await res.blob();
+      const name = filenameFrom(res.headers.get("Content-Disposition")) || "result";
+      downloadBlob(blob, name);
+      celebrate();
+    } catch (err) {
+      errorEl.textContent = err.message || "Something went wrong.";
+      errorEl.hidden = false;
+    } finally {
+      runBtn.classList.remove("busy");
+      runBtn.disabled = input.files.length === 0;
+    }
+  });
+
+  function filenameFrom(header) {
+    if (!header) return null;
+    const m = /filename="?([^"]+)"?/.exec(header);
+    return m ? m[1] : null;
+  }
+
+  function downloadBlob(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // --- Tiny dependency-free confetti burst -----------------------------------
+  function celebrate() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const canvas = document.getElementById("confetti");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+
+    const colors = ["#7c5cff", "#2dd4bf", "#ffd166", "#ff6b6b", "#9a7bff"];
+    const parts = Array.from({ length: 140 }, () => ({
+      x: innerWidth / 2,
+      y: innerHeight / 3,
+      vx: (Math.random() - 0.5) * 12,
+      vy: Math.random() * -14 - 4,
+      size: Math.random() * 6 + 4,
+      color: colors[(Math.random() * colors.length) | 0],
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.4,
+      life: 1,
+    }));
+
+    let raf;
+    (function frame() {
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      let alive = false;
+      for (const p of parts) {
+        p.vy += 0.4; // gravity
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= 0.012;
+        if (p.life > 0 && p.y < innerHeight + 20) {
+          alive = true;
+          ctx.save();
+          ctx.globalAlpha = Math.max(p.life, 0);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+          ctx.restore();
+        }
+      }
+      if (alive) raf = requestAnimationFrame(frame);
+      else { cancelAnimationFrame(raf); ctx.clearRect(0, 0, innerWidth, innerHeight); }
+    })();
+  }
+})();

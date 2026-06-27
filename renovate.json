@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "labels": ["dependencies"],
+  "pip_requirements": {
+    "managerFilePatterns": ["/requirements.txt/"]
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["pip_requirements"],
+      "rangeStrategy": "pin"
+    }
+  ]
+}
