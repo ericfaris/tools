@@ -35,3 +35,12 @@ MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)
 # Rate limiting: max failed auth attempts per IP within the window (seconds).
 RATE_LIMIT_MAX_FAILURES = int(os.environ.get("RATE_LIMIT_MAX_FAILURES", "10"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "300"))
+
+# Comma-separated IPs of trusted reverse proxies (e.g. the Cloudflare Tunnel
+# connector). When the direct peer is one of these, the real client IP for rate
+# limiting is taken from CF-Connecting-IP / X-Forwarded-For — otherwise every
+# user shares the proxy's single bucket. Empty by default (direct-exposure safe:
+# forwarding headers are ignored unless the peer is explicitly trusted).
+TRUSTED_PROXIES = {
+    ip.strip() for ip in os.environ.get("TRUSTED_PROXIES", "").split(",") if ip.strip()
+}

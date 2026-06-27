@@ -68,6 +68,34 @@ def test_upload_too_large_413(client, monkeypatch):
     assert r.status_code == 413
 
 
+def test_single_oversized_file_rejected_before_buffering(client, monkeypatch):
+    # One file larger than the cap must be rejected by the chunked reader,
+    # not buffered whole then checked.
+    monkeypatch.setattr(config, "MAX_UPLOAD_BYTES", 1000)
+    r = client.post(
+        "/api/tools/pdf-merge",
+        files=[("files", ("big.bin", b"x" * 5000, "application/octet-stream"))],
+        headers=ORIGIN,
+    )
+    assert r.status_code == 413
+
+
+def test_download_filename_is_sanitized(client):
+    # image-convert derives the download name from the upload name; a quote in
+    # it must not break the Content-Disposition header.
+    r = client.post(
+        "/api/tools/image-convert",
+        files=[("files", ('e"vil.png', make_image("PNG"), "image/png"))],
+        data={"format": "png"},
+        headers=ORIGIN,
+    )
+    assert r.status_code == 200
+    cd = r.headers["content-disposition"]
+    # A well-formed header has exactly the two wrapping quotes and no stray ones.
+    assert cd.count('"') == 2
+    assert "\n" not in cd and "\r" not in cd
+
+
 def test_tool_failure_returns_422_not_500(client):
     # A text file is not a valid PDF; the tool raises and we surface 422.
     r = client.post(

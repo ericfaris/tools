@@ -5,6 +5,7 @@ import hmac
 import threading
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -38,8 +39,18 @@ _failures_lock = threading.Lock()
 
 
 def _client_ip(request: Request) -> str:
-    # Trust only the direct peer; forwarding headers can be spoofed.
-    return request.client.host if request.client else "unknown"
+    peer = request.client.host if request.client else "unknown"
+    # Only honor forwarding headers when the direct peer is a trusted proxy;
+    # otherwise they can be spoofed. Behind the Cloudflare Tunnel this keeps the
+    # rate limiter per-user instead of lumping everyone into the proxy's bucket.
+    if peer in config.TRUSTED_PROXIES:
+        forwarded = (
+            request.headers.get("cf-connecting-ip")
+            or request.headers.get("x-forwarded-for", "")
+        )
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return peer
 
 
 def _is_rate_limited(ip: str) -> bool:
@@ -47,7 +58,10 @@ def _is_rate_limited(ip: str) -> bool:
     window = config.RATE_LIMIT_WINDOW_SECONDS
     with _failures_lock:
         hits = [t for t in _failures.get(ip, []) if now - t < window]
-        _failures[ip] = hits
+        if hits:
+            _failures[ip] = hits
+        else:
+            _failures.pop(ip, None)  # don't retain empty buckets forever
         return len(hits) >= config.RATE_LIMIT_MAX_FAILURES
 
 
@@ -55,6 +69,12 @@ def _record_failure(ip: str) -> None:
     # Counters live in memory only (for rate limiting) and are never logged.
     with _failures_lock:
         _failures.setdefault(ip, []).append(time.time())
+
+
+def _clear_failures(ip: str) -> None:
+    # A successful auth wipes the IP's failure history.
+    with _failures_lock:
+        _failures.pop(ip, None)
 
 
 # --- CSRF (Origin/Referer check on state-changing requests) -------------------
@@ -66,8 +86,15 @@ def _csrf_ok(request: Request) -> bool:
     origin = request.headers.get("origin") or request.headers.get("referer")
     if not origin:
         return False
-    host = request.headers.get("host", "")
-    return host in origin
+    # Exact host match — a substring check would accept evil-<host>.com etc.
+    return urlparse(origin).netloc == request.headers.get("host", "")
+
+
+def _safe_filename(name: str) -> str:
+    """Strip path components and characters that would corrupt or inject into
+    the Content-Disposition header (the name can derive from a user upload)."""
+    base = Path(name).name
+    return base.replace('"', "").replace("\r", "").replace("\n", "") or "download"
 
 
 def _check_basic_auth(request: Request) -> bool:
@@ -86,34 +113,46 @@ def _check_basic_auth(request: Request) -> bool:
     return False
 
 
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    path = request.url.path
-    is_public = any(path == p or path.startswith(p) for p in PUBLIC_PREFIXES)
-
-    if not is_public:
-        ip = _client_ip(request)
-        if _is_rate_limited(ip):
-            return Response(status_code=429, content="Too many failed attempts")
-
-        if not _check_basic_auth(request):
-            if config.AUTH_CREDENTIALS:
-                _record_failure(ip)
-            return Response(
-                status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="Tools"'},
-            )
-
-        if _is_state_changing(request) and not _csrf_ok(request):
-            return Response(status_code=403, content="CSRF check failed")
-
-    response = await call_next(request)
+def _apply_security_headers(response: Response) -> Response:
     response.headers["Content-Security-Policy"] = CSP
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     # Never let a browser, proxy, or CDN cache anyone's files or results.
     response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
+
+
+async def _authorize_or_dispatch(request: Request, call_next) -> Response:
+    path = request.url.path
+    is_public = any(path == p or path.startswith(p) for p in PUBLIC_PREFIXES)
+    if is_public:
+        return await call_next(request)
+
+    ip = _client_ip(request)
+    if _is_rate_limited(ip):
+        return Response(status_code=429, content="Too many failed attempts")
+
+    if config.AUTH_CREDENTIALS:
+        if _check_basic_auth(request):
+            _clear_failures(ip)
+        else:
+            _record_failure(ip)
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Tools"'},
+            )
+
+    if _is_state_changing(request) and not _csrf_ok(request):
+        return Response(status_code=403, content="CSRF check failed")
+
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Security headers are applied to *every* response, including the early
+    # 401/403/429 returns above.
+    return _apply_security_headers(await _authorize_or_dispatch(request, call_next))
 
 
 @app.get("/health")
@@ -159,11 +198,15 @@ async def run_tool(request: Request, tool_id: str):
     try:
         total = 0
         for up in uploads:
-            data = await up.read()
-            total += len(data)
-            if total > config.MAX_UPLOAD_BYTES:
-                raise HTTPException(status_code=413, detail="Upload too large")
-            files.append((up.filename or "file", data))
+            # Read in bounded chunks so an oversized file is rejected before it
+            # is ever buffered whole — no single upload can exhaust memory.
+            buf = bytearray()
+            while chunk := await up.read(64 * 1024):
+                total += len(chunk)
+                if total > config.MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Upload too large")
+                buf += chunk
+            files.append((up.filename or "file", bytes(buf)))
 
         opts = {opt.name: form.get(opt.name, opt.default) for opt in tool.options}
 
@@ -178,7 +221,7 @@ async def run_tool(request: Request, tool_id: str):
         if isinstance(result, JsonResult):
             return JSONResponse({"render": result.render, **result.payload})
 
-        safe_name = Path(result.filename).name
+        safe_name = _safe_filename(result.filename)
         return Response(
             content=result.data,
             media_type=result.media_type,

@@ -72,6 +72,25 @@ def test_uploads_are_closed_even_on_failure(client, monkeypatch):
     assert calls["n"] == 1  # cleanup still ran on the error path
 
 
+def test_security_headers_present_on_401(client, monkeypatch):
+    monkeypatch.setattr(config, "AUTH_CREDENTIALS", [("alice", "secret")])
+    r = client.get("/")  # rejected -> 401, but still hardened
+    assert r.status_code == 401
+    assert r.headers["cache-control"] == "no-store, max-age=0"
+    assert "content-security-policy" in r.headers
+    assert r.headers["referrer-policy"] == "no-referrer"
+
+
+def test_security_headers_present_on_csrf_403(client):
+    r = client.post(  # no Origin/Referer -> 403
+        "/api/tools/pdf-merge",
+        files=[("files", ("a.pdf", make_pdf(), "application/pdf"))],
+    )
+    assert r.status_code == 403
+    assert r.headers["cache-control"] == "no-store, max-age=0"
+    assert "content-security-policy" in r.headers
+
+
 def test_no_application_logger_exists():
     # We deliberately keep no module-level logger that could record activity.
     assert not hasattr(main_module, "logger")
