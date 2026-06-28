@@ -36,9 +36,22 @@ else:
 # Max upload size per request (bytes). Default 100 MB.
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 
+# Caps on multipart structure, enforced during form parsing so a single request
+# can't open thousands of parts/fields and exhaust memory before we read them.
+MAX_UPLOAD_FILES = int(os.environ.get("MAX_UPLOAD_FILES", "100"))
+MAX_FORM_FIELDS = int(os.environ.get("MAX_FORM_FIELDS", "100"))
+
+# Decompression-bomb guard: refuse images whose decoded pixel count exceeds this,
+# regardless of how few bytes they occupy on the wire. Default ~64 MP.
+MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", str(64 * 1024 * 1024)))
+
 # Rate limiting: max failed auth attempts per IP within the window (seconds).
 RATE_LIMIT_MAX_FAILURES = int(os.environ.get("RATE_LIMIT_MAX_FAILURES", "10"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "300"))
+
+# Hard cap on how many distinct client IPs the rate-limit table will track at
+# once, so a flood of one-off IPs can't grow it without bound.
+RATE_LIMIT_MAX_TRACKED_IPS = int(os.environ.get("RATE_LIMIT_MAX_TRACKED_IPS", "10000"))
 
 # Comma-separated IPs of trusted reverse proxies (e.g. the Cloudflare Tunnel
 # connector). When the direct peer is one of these, the real client IP for rate

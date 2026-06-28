@@ -7,10 +7,28 @@ from typing import Any
 
 from PIL import Image
 
+from .. import config
 from .base import JsonResult, Option, Result, Tool, register
 
 _PIL_FORMAT = {"png": "PNG", "jpg": "JPEG", "jpeg": "JPEG", "webp": "WEBP"}
 _MEDIA_TYPE = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+
+# Belt-and-suspenders to _open_image's explicit check: Pillow raises its own
+# DecompressionBombError once an image exceeds this many pixels.
+Image.MAX_IMAGE_PIXELS = config.MAX_IMAGE_PIXELS
+
+
+def _open_image(data: bytes) -> Image.Image:
+    """Open an uploaded image, refusing decompression bombs.
+
+    A few KB of input can declare a multi-gigapixel canvas; decoding it would
+    exhaust memory. We verify the declared dimensions against MAX_IMAGE_PIXELS
+    before any pixel data is materialized (verify/convert/resize/save)."""
+    img = Image.open(io.BytesIO(data))
+    w, h = img.size
+    if w * h > config.MAX_IMAGE_PIXELS:
+        raise ValueError("Image is too large to process")
+    return img
 
 
 def _convert(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> Result:
@@ -20,7 +38,7 @@ def _convert(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> Result:
         raise ValueError(f"Unsupported target format: {fmt}")
 
     name, data = files[0]
-    img = Image.open(io.BytesIO(data))
+    img = _open_image(data)
 
     # JPEG has no alpha channel; flatten transparency onto white.
     if pil_fmt == "JPEG" and img.mode in ("RGBA", "LA", "P"):
@@ -33,7 +51,7 @@ def _convert(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> Result:
 
 
 def _images_to_pdf(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> Result:
-    images = [Image.open(io.BytesIO(d)).convert("RGB") for _n, d in files]
+    images = [_open_image(d).convert("RGB") for _n, d in files]
     out = io.BytesIO()
     images[0].save(out, format="PDF", save_all=True, append_images=images[1:])
     return Result(out.getvalue(), "images.pdf", "application/pdf")
@@ -66,7 +84,7 @@ _FAVICON_SNIPPET = """<link rel="icon" type="image/x-icon" href="/favicon.ico">
 
 def _favicons(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> Result:
     _name, data = files[0]
-    src = _square(Image.open(io.BytesIO(data)).convert("RGBA"))
+    src = _square(_open_image(data).convert("RGBA"))
 
     zbuf = io.BytesIO()
     with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -88,7 +106,7 @@ def _favicons(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> Result:
 
 def _palette(files: list[tuple[str, bytes]], opts: dict[str, Any]) -> JsonResult:
     count = int(opts.get("count", 6))
-    img = Image.open(io.BytesIO(files[0][1])).convert("RGB")
+    img = _open_image(files[0][1]).convert("RGB")
     img.thumbnail((240, 240))  # downscale for speed; colors are unaffected enough
 
     quant = img.quantize(colors=count, method=Image.Quantize.MEDIANCUT)

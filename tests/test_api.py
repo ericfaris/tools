@@ -96,6 +96,46 @@ def test_download_filename_is_sanitized(client):
     assert "\n" not in cd and "\r" not in cd
 
 
+def test_download_filename_strips_angle_brackets(client):
+    # A name carrying an HTML payload must come back with the angle brackets
+    # gone, so it can't inject when the browser echoes the download name.
+    r = client.post(
+        "/api/tools/image-convert",
+        files=[("files", ("<script>x.png", make_image("PNG"), "image/png"))],
+        data={"format": "png"},
+        headers=ORIGIN,
+    )
+    assert r.status_code == 200
+    cd = r.headers["content-disposition"]
+    assert "<" not in cd and ">" not in cd
+
+
+def test_oversized_content_length_rejected_before_parsing(client, monkeypatch):
+    # The early Content-Length guard rejects a too-large body up front, before
+    # request.form() spools the multipart payload to the tmpfs.
+    monkeypatch.setattr(config, "MAX_UPLOAD_BYTES", 5)
+    r = client.post(
+        "/api/tools/pdf-merge",
+        content=b"x" * 5000,
+        headers={**ORIGIN, "Content-Type": "multipart/form-data; boundary=zzz"},
+    )
+    assert r.status_code == 413
+
+
+def test_image_decompression_bomb_rejected_422(client, monkeypatch):
+    # An image whose pixel count exceeds the cap is refused as unprocessable,
+    # rather than being decoded and exhausting memory.
+    monkeypatch.setattr(config, "MAX_IMAGE_PIXELS", 100)  # 32x32 = 1024 > 100
+    r = client.post(
+        "/api/tools/image-convert",
+        files=[("files", ("big.png", make_image("PNG", size=(32, 32)), "image/png"))],
+        data={"format": "png"},
+        headers=ORIGIN,
+    )
+    assert r.status_code == 422
+    assert "too large" in r.json()["detail"].lower()
+
+
 def test_tool_failure_returns_422_not_500(client):
     # A text file is not a valid PDF; the tool raises and we surface 422.
     r = client.post(

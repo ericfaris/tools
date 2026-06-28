@@ -58,6 +58,10 @@ All config is via environment variables (see `app/config.py` / `.env.example`):
 | `AUTH_USERS` | — | `user:pass,user2:pass2` multi-user (takes precedence) |
 | `BASE_URL` | `http://localhost:8000` | Public URL of the portal |
 | `MAX_UPLOAD_BYTES` | `104857600` | Max upload size per request (100 MB) |
+| `MAX_UPLOAD_FILES` | `100` | Max file parts accepted per request |
+| `MAX_FORM_FIELDS` | `100` | Max non-file form fields per request |
+| `MAX_IMAGE_PIXELS` | `67108864` | Decompression-bomb cap on decoded image pixels (~64 MP) |
+| `RATE_LIMIT_MAX_TRACKED_IPS` | `10000` | Cap on IPs held in the failed-auth table |
 | `ACCESS_LOG` | `false` | Request logging — leave off; `true` only for local debugging |
 
 **Security:** HTTP Basic Auth on all non-public routes, CSRF Origin/Referer

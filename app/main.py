@@ -68,8 +68,18 @@ def _is_rate_limited(ip: str) -> bool:
 
 def _record_failure(ip: str) -> None:
     # Counters live in memory only (for rate limiting) and are never logged.
+    now = time.time()
     with _failures_lock:
-        _failures.setdefault(ip, []).append(time.time())
+        # Bound the table: if we're at capacity and this is a brand-new IP, drop
+        # any buckets whose entries have all aged out so a flood of one-off IPs
+        # can't grow it without limit. (Sweep only on the rare capacity hit.)
+        if ip not in _failures and len(_failures) >= config.RATE_LIMIT_MAX_TRACKED_IPS:
+            window = config.RATE_LIMIT_WINDOW_SECONDS
+            for stale_ip in [
+                k for k, ts in _failures.items() if all(now - t >= window for t in ts)
+            ]:
+                del _failures[stale_ip]
+        _failures.setdefault(ip, []).append(now)
 
 
 def _clear_failures(ip: str) -> None:
@@ -93,9 +103,12 @@ def _csrf_ok(request: Request) -> bool:
 
 def _safe_filename(name: str) -> str:
     """Strip path components and characters that would corrupt or inject into
-    the Content-Disposition header (the name can derive from a user upload)."""
+    the Content-Disposition header or, once the name is echoed back into the
+    page, the DOM (the name can derive from a user upload). We drop angle
+    brackets and all C0 control characters in addition to quotes and CR/LF."""
     base = Path(name).name
-    return base.replace('"', "").replace("\r", "").replace("\n", "") or "download"
+    cleaned = "".join(ch for ch in base if ch not in '"<>' and ord(ch) >= 0x20)
+    return cleaned or "download"
 
 
 def _check_basic_auth(request: Request) -> bool:
@@ -146,6 +159,14 @@ async def _authorize_or_dispatch(request: Request, call_next) -> Response:
     if _is_state_changing(request) and not _csrf_ok(request):
         return Response(status_code=403, content="CSRF check failed")
 
+    # Reject oversized bodies up front, before request.form() spools the whole
+    # multipart payload to the in-memory tmpfs. The per-chunk check in run_tool
+    # still backstops chunked uploads that omit Content-Length.
+    if _is_state_changing(request):
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > config.MAX_UPLOAD_BYTES:
+            return Response(status_code=413, content="Upload too large")
+
     return await call_next(request)
 
 
@@ -187,7 +208,9 @@ async def run_tool(request: Request, tool_id: str):
     if tool is None:
         raise HTTPException(status_code=404, detail="Unknown tool")
 
-    form = await request.form()
+    form = await request.form(
+        max_files=config.MAX_UPLOAD_FILES, max_fields=config.MAX_FORM_FIELDS
+    )
     uploads = [v for v in form.getlist("files") if isinstance(v, UploadFile)]
     if not uploads:
         raise HTTPException(status_code=400, detail="No files uploaded")

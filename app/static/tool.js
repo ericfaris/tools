@@ -72,7 +72,7 @@
         const blob = await res.blob();
         const name = filenameFrom(res.headers.get("Content-Disposition")) || "result";
         downloadBlob(blob, name);
-        showResultNote(`Done — downloaded <strong>${name}</strong>`);
+        showDownloadNote(name);
       }
       celebrate();
     } catch (err) {
@@ -85,8 +85,26 @@
   });
 
   // --- Inline results --------------------------------------------------------
-  function showResultNote(html) {
-    resultEl.innerHTML = `<p class="result-note">${html}</p>`;
+  function showResultNote(text) {
+    resultEl.innerHTML = "";
+    const p = document.createElement("p");
+    p.className = "result-note";
+    p.textContent = text;
+    resultEl.appendChild(p);
+    resultEl.hidden = false;
+  }
+
+  // The filename is server-controlled but can derive from a user upload, so it
+  // is inserted as text (never HTML) to avoid any injection via the name.
+  function showDownloadNote(name) {
+    resultEl.innerHTML = "";
+    const p = document.createElement("p");
+    p.className = "result-note";
+    p.append("Done — downloaded ");
+    const strong = document.createElement("strong");
+    strong.textContent = name;
+    p.appendChild(strong);
+    resultEl.appendChild(p);
     resultEl.hidden = false;
   }
 
