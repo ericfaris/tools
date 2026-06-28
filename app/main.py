@@ -21,6 +21,7 @@ from .tools import REGISTRY, JsonResult, families
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["version"] = config.VERSION
 
 app = FastAPI(title="Tools")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -157,7 +158,7 @@ async def auth_middleware(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "tools": len(REGISTRY)}
+    return {"status": "ok", "version": config.VERSION, "tools": len(REGISTRY)}
 
 
 @app.get("/", response_class=HTMLResponse)

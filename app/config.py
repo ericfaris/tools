@@ -1,4 +1,8 @@
 import os
+from pathlib import Path
+
+# Application version — single source of truth is the top-level VERSION file.
+VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
 
 # External URL where the portal is reachable (used for absolute links if needed).
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")

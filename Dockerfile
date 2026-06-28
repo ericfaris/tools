@@ -12,6 +12,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY VERSION .
 COPY app/ ./app/
 
 # Don't write .pyc files, and send transient temp spills to /tmp (mounted as an
