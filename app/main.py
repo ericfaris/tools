@@ -208,9 +208,14 @@ async def run_tool(request: Request, tool_id: str):
     if tool is None:
         raise HTTPException(status_code=404, detail="Unknown tool")
 
-    form = await request.form(
-        max_files=config.MAX_UPLOAD_FILES, max_fields=config.MAX_FORM_FIELDS
-    )
+    try:
+        form = await request.form(
+            max_files=config.MAX_UPLOAD_FILES, max_fields=config.MAX_FORM_FIELDS
+        )
+    except Exception:
+        # A malformed multipart body (bad boundary, truncated payload, or more
+        # parts/fields than allowed) is a client error, not a server fault.
+        raise HTTPException(status_code=400, detail="Malformed upload")
     uploads = [v for v in form.getlist("files") if isinstance(v, UploadFile)]
     if not uploads:
         raise HTTPException(status_code=400, detail="No files uploaded")

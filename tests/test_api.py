@@ -122,6 +122,20 @@ def test_oversized_content_length_rejected_before_parsing(client, monkeypatch):
     assert r.status_code == 413
 
 
+def test_malformed_multipart_is_400_not_500(client):
+    # A body that isn't valid multipart must surface as a client error, not an
+    # unhandled server fault.
+    r = client.post(
+        "/api/tools/pdf-merge",
+        content=b"garbage not multipart",
+        headers={
+            **ORIGIN,
+            "Content-Type": "multipart/form-data; boundary=z",
+        },
+    )
+    assert r.status_code == 400
+
+
 def test_image_decompression_bomb_rejected_422(client, monkeypatch):
     # An image whose pixel count exceeds the cap is refused as unprocessable,
     # rather than being decoded and exhausting memory.
