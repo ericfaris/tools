@@ -21,6 +21,8 @@ See [`SPEC.md`](SPEC.md) for the full product vision.
 | Split PDF | PDF | Explode a PDF into one file per page (zip) |
 | Convert Image | Image | PNG ⇄ JPG ⇄ WebP |
 | Images → PDF | Convert | Stitch images into a single PDF |
+| Bingo Card Generator | Generate | Turn a plain-text item list into randomized, printable bingo cards (PDF) |
+| Super Bowl Bingo | Generate | Same, but the item list is built live from ESPN's public NFL API — this season's matchup, rosters, and injury/news data. No upload needed; optionally add a halftime performer, anthem singer, or extra items by hand. The only tool that makes an outbound network call (to `site.api.espn.com`, no key required, no data sent besides the request itself) |
 
 More PDF/image/audio/video/document tools are planned — see `SPEC.md §5`.
 

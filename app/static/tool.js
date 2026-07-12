@@ -11,6 +11,7 @@
   const resultEl = document.getElementById("result");
   const toastEl = document.getElementById("toast");
   const multiple = form.dataset.multiple === "true";
+  const requiresFile = form.dataset.requiresFile !== "false";
   const action = form.dataset.action;
 
   function setFiles(fileList) {
@@ -28,28 +29,32 @@
       li.textContent = f.name;
       list.appendChild(li);
     }
-    runBtn.disabled = input.files.length === 0;
+    runBtn.disabled = requiresFile && input.files.length === 0;
   }
 
-  dropzone.addEventListener("click", () => input.click());
-  dropzone.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
-  });
-  input.addEventListener("change", () => render());
+  if (requiresFile) {
+    dropzone.addEventListener("click", () => input.click());
+    dropzone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+    });
+    input.addEventListener("change", () => render());
 
-  ["dragenter", "dragover"].forEach((ev) =>
-    dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("dragover"); })
-  );
-  ["dragleave", "drop"].forEach((ev) =>
-    dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove("dragover"); })
-  );
-  dropzone.addEventListener("drop", (e) => {
-    if (e.dataTransfer?.files?.length) setFiles(e.dataTransfer.files);
-  });
+    ["dragenter", "dragover"].forEach((ev) =>
+      dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("dragover"); })
+    );
+    ["dragleave", "drop"].forEach((ev) =>
+      dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove("dragover"); })
+    );
+    dropzone.addEventListener("drop", (e) => {
+      if (e.dataTransfer?.files?.length) setFiles(e.dataTransfer.files);
+    });
+  } else {
+    runBtn.disabled = false;
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!input.files.length) return;
+    if (requiresFile && !input.files.length) return;
     errorEl.hidden = true;
     resultEl.hidden = true;
     resultEl.innerHTML = "";
@@ -80,7 +85,7 @@
       errorEl.hidden = false;
     } finally {
       runBtn.classList.remove("busy");
-      runBtn.disabled = input.files.length === 0;
+      runBtn.disabled = requiresFile && input.files.length === 0;
     }
   });
 

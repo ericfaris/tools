@@ -16,8 +16,10 @@
 
   <form id="tool-form" class="tool-form"
         data-action="/api/tools/{{ tool.id }}"
-        data-multiple="{{ 'true' if tool.multiple else 'false' }}">
+        data-multiple="{{ 'true' if tool.multiple else 'false' }}"
+        data-requires-file="{{ 'true' if tool.requires_file else 'false' }}">
 
+    {% if tool.requires_file %}
     <label class="dropzone" id="dropzone" tabindex="0">
       <input id="file-input" type="file" name="files"
              accept="{{ tool.accept }}" {% if tool.multiple %}multiple{% endif %} hidden>
@@ -26,6 +28,7 @@
       <span class="dz-sub">or click to browse</span>
       <ul class="dz-list" id="file-list"></ul>
     </label>
+    {% endif %}
 
     {% if tool.options %}
     <div class="options">

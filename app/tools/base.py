@@ -61,6 +61,7 @@ class Tool:
     run: RunFn
     accept: str = ""  # HTML file-input accept attribute
     multiple: bool = False  # accept more than one file
+    requires_file: bool = True  # False for tools that need no upload (e.g. live-data lookups)
     options: list[Option] = field(default_factory=list)
 
 

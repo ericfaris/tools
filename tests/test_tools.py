@@ -93,3 +93,112 @@ def test_color_palette_respects_count():
     img.save(buf, format="PNG")
     result = REGISTRY["color-palette"].run([("x.png", buf.getvalue())], {"count": "4"})
     assert len(result.payload["colors"]) <= 4
+
+
+def _items(n: int) -> bytes:
+    return "\n".join(f"item{i}" for i in range(n)).encode()
+
+
+def test_bingo_cards_generates_requested_page_count():
+    from pypdf import PdfReader
+
+    result = REGISTRY["bingo-cards"].run(
+        [("items.txt", _items(30))], {"rows": "5", "cols": "5", "cards": "3"}
+    )
+    assert result.media_type == "application/pdf"
+    assert result.filename == "bingo_cards.pdf"
+    assert len(PdfReader(io.BytesIO(result.data)).pages) == 3
+
+
+def test_bingo_cards_free_space_reduces_items_needed():
+    # A 3x3 card with free space only needs 8 unique items, not 9.
+    result = REGISTRY["bingo-cards"].run(
+        [("items.txt", _items(8))],
+        {"rows": "3", "cols": "3", "cards": "1", "free_space": "true", "free_text": "WILD"},
+    )
+    assert result.media_type == "application/pdf"
+
+
+def test_bingo_cards_rejects_too_few_items():
+    import pytest
+
+    with pytest.raises(ValueError):
+        REGISTRY["bingo-cards"].run([("items.txt", _items(5))], {"rows": "5", "cols": "5", "cards": "1"})
+
+
+def test_bingo_cards_rejects_too_many_cards():
+    import pytest
+
+    with pytest.raises(ValueError):
+        REGISTRY["bingo-cards"].run([("items.txt", _items(30))], {"rows": "5", "cols": "5", "cards": "9999"})
+
+
+def _fake_roster(team_id: str) -> list[dict]:
+    positions = ["QB", "RB", "WR", "TE", "LB", "CB", "K"]
+    return [
+        {"name": f"Player{team_id}-{i}", "pos": positions[i % len(positions)], "status": None}
+        for i in range(10)
+    ]
+
+
+def test_super_bowl_bingo_builds_cards_from_mocked_espn_data(monkeypatch):
+    from pypdf import PdfReader
+
+    from app.tools import bingo_tools
+
+    monkeypatch.setattr(
+        bingo_tools, "_get_super_bowl_matchup",
+        lambda: ({"id": "1", "abbr": "AAA", "name": "Team A"}, {"id": "2", "abbr": "BBB", "name": "Team B"}),
+    )
+    monkeypatch.setattr(bingo_tools, "_get_roster", _fake_roster)
+    monkeypatch.setattr(bingo_tools, "_get_relevant_news", lambda team_names, limit=6: ["A headline"])
+
+    result = REGISTRY["super-bowl-bingo"].run(
+        [], {"rows": "3", "cols": "3", "cards": "2", "halftime_performer": "The Band", "extra_items": "Foo, Bar"}
+    )
+    assert result.media_type == "application/pdf"
+    assert len(PdfReader(io.BytesIO(result.data)).pages) == 2
+
+
+def test_super_bowl_bingo_title_defaults_to_matchup(monkeypatch):
+    from app.tools import bingo_tools
+
+    monkeypatch.setattr(
+        bingo_tools, "_get_super_bowl_matchup",
+        lambda: ({"id": "1", "abbr": "AAA", "name": "Team A"}, {"id": "2", "abbr": "BBB", "name": "Team B"}),
+    )
+    monkeypatch.setattr(bingo_tools, "_get_roster", _fake_roster)
+    monkeypatch.setattr(bingo_tools, "_get_relevant_news", lambda team_names, limit=6: [])
+
+    result = REGISTRY["super-bowl-bingo"].run([], {"rows": "3", "cols": "3", "cards": "1"})
+    assert result.media_type == "application/pdf"  # title="AAA vs BBB" renders without error
+
+
+def test_super_bowl_bingo_propagates_matchup_not_set_error(monkeypatch):
+    import pytest
+
+    from app.tools import bingo_tools
+
+    def _raise():
+        raise ValueError("The Super Bowl matchup isn't set yet")
+
+    monkeypatch.setattr(bingo_tools, "_get_super_bowl_matchup", _raise)
+
+    with pytest.raises(ValueError, match="matchup isn't set yet"):
+        REGISTRY["super-bowl-bingo"].run([], {"rows": "3", "cols": "3", "cards": "1"})
+
+
+def test_super_bowl_bingo_rejects_grid_too_large_for_available_items(monkeypatch):
+    import pytest
+
+    from app.tools import bingo_tools
+
+    monkeypatch.setattr(
+        bingo_tools, "_get_super_bowl_matchup",
+        lambda: ({"id": "1", "abbr": "AAA", "name": "Team A"}, {"id": "2", "abbr": "BBB", "name": "Team B"}),
+    )
+    monkeypatch.setattr(bingo_tools, "_get_roster", lambda team_id: _fake_roster(team_id)[:2])
+    monkeypatch.setattr(bingo_tools, "_get_relevant_news", lambda team_names, limit=6: [])
+
+    with pytest.raises(ValueError):
+        REGISTRY["super-bowl-bingo"].run([], {"rows": "10", "cols": "10", "cards": "1"})

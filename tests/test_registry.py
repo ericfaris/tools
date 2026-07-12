@@ -5,7 +5,7 @@ from app.tools import REGISTRY, Tool, families, register
 
 EXPECTED_IDS = {
     "pdf-merge", "pdf-split", "image-convert", "images-to-pdf",
-    "favicon", "color-palette",
+    "favicon", "color-palette", "bingo-cards", "super-bowl-bingo",
 }
 
 

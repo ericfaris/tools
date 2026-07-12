@@ -217,7 +217,7 @@ async def run_tool(request: Request, tool_id: str):
         # parts/fields than allowed) is a client error, not a server fault.
         raise HTTPException(status_code=400, detail="Malformed upload")
     uploads = [v for v in form.getlist("files") if isinstance(v, UploadFile)]
-    if not uploads:
+    if not uploads and tool.requires_file:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
     # Everything below stays in memory. The `finally` closes each UploadFile,
@@ -245,7 +245,7 @@ async def run_tool(request: Request, tool_id: str):
             raise
         except Exception as exc:  # tool failures must not 500 the portal
             # The reason goes to the user only; we keep no server-side log of it.
-            raise HTTPException(status_code=422, detail=f"Could not process file: {exc}")
+            raise HTTPException(status_code=422, detail=f"Could not complete request: {exc}")
 
         if isinstance(result, JsonResult):
             return JSONResponse({"render": result.render, **result.payload})

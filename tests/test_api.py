@@ -158,7 +158,7 @@ def test_tool_failure_returns_422_not_500(client):
         headers=ORIGIN,
     )
     assert r.status_code == 422
-    assert "Could not process" in r.json()["detail"]
+    assert "Could not complete request" in r.json()["detail"]
 
 
 # --- Per-tool round trips over HTTP -------------------------------------------
@@ -238,3 +238,41 @@ def test_api_color_palette_returns_json(client):
     body = r.json()
     assert body["render"] == "palette"
     assert body["colors"][0]["hex"] == "#ff0000"
+
+
+def test_api_bingo_cards(client):
+    items = "\n".join(f"item{i}" for i in range(30)).encode()
+    r = client.post(
+        "/api/tools/bingo-cards",
+        files=[("files", ("items.txt", items, "text/plain"))],
+        data={"rows": "5", "cols": "5", "cards": "2"},
+        headers=ORIGIN,
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert len(PdfReader(io.BytesIO(r.content)).pages) == 2
+
+
+def test_api_super_bowl_bingo_needs_no_file_upload(client, monkeypatch):
+    # requires_file=False: the tool must run over plain form data, no `files` part.
+    from app.tools import bingo_tools
+
+    monkeypatch.setattr(
+        bingo_tools, "_get_super_bowl_matchup",
+        lambda: ({"id": "1", "abbr": "AAA", "name": "Team A"}, {"id": "2", "abbr": "BBB", "name": "Team B"}),
+    )
+    monkeypatch.setattr(
+        bingo_tools, "_get_roster",
+        lambda team_id: [
+            {"name": f"P{team_id}-{i}", "pos": "WR", "status": None} for i in range(10)
+        ],
+    )
+    monkeypatch.setattr(bingo_tools, "_get_relevant_news", lambda team_names, limit=6: [])
+
+    r = client.post(
+        "/api/tools/super-bowl-bingo",
+        data={"rows": "3", "cols": "3", "cards": "1"},
+        headers=ORIGIN,
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
