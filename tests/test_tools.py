@@ -29,6 +29,37 @@ def test_pdf_split_returns_one_pdf_per_page_in_zip():
             assert len(PdfReader(io.BytesIO(z.read(name))).pages) == 1
 
 
+def test_pdf_to_epub_preserves_headings_and_chapters():
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "My Book", fontsize=24)
+    page.insert_text((72, 100), "This is the first paragraph of body text.", fontsize=11)
+    page.insert_text((72, 130), "A Chapter", fontsize=18)
+    page.insert_text((72, 160), "This is the second paragraph of body text.", fontsize=11)
+    pdf_bytes = doc.tobytes()
+    doc.close()
+
+    result = REGISTRY["pdf-to-epub"].run(
+        [("book.pdf", pdf_bytes)], {"title": "Custom Title", "author": "Jane Doe"}
+    )
+    assert result.media_type == "application/epub+zip"
+    assert result.filename == "book.epub"
+
+    from ebooklib import epub
+
+    book = epub.read_epub(io.BytesIO(result.data))
+    assert book.get_metadata("DC", "title")[0][0] == "Custom Title"
+    assert book.get_metadata("DC", "creator")[0][0] == "Jane Doe"
+    combined = b"".join(
+        item.get_content() for item in book.get_items_of_type(9)  # ITEM_DOCUMENT
+    )
+    assert b"first paragraph" in combined
+    assert b"second paragraph" in combined
+    assert b"<h1>" in combined or b"<h2>" in combined
+
+
 def test_image_convert_png_to_jpg_flattens_alpha():
     # An RGBA source must convert to JPEG without raising.
     img = Image.new("RGBA", (16, 16), (10, 20, 30, 128))

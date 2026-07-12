@@ -19,6 +19,7 @@ See [`SPEC.md`](SPEC.md) for the full product vision.
 |------|--------|--------------|
 | Merge PDFs | PDF | Combine several PDFs into one |
 | Split PDF | PDF | Explode a PDF into one file per page (zip) |
+| PDF to EPUB | PDF | Convert a PDF into an EPUB, preserving headings, bold/italic, and chapter breaks |
 | Convert Image | Image | PNG ⇄ JPG ⇄ WebP |
 | Images → PDF | Convert | Stitch images into a single PDF |
 | Bingo Card Generator | Generate | Turn a plain-text item list into randomized, printable bingo cards (PDF) |
