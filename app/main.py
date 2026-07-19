@@ -182,6 +182,11 @@ def health():
     return {"status": "ok", "version": config.VERSION, "tools": len(REGISTRY)}
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response((BASE_DIR / "static" / "favicon.ico").read_bytes(), media_type="image/vnd.microsoft.icon")
+
+
 @app.get("/", response_class=HTMLResponse)
 def portal(request: Request):
     grouped = {fam: [] for fam in families()}
