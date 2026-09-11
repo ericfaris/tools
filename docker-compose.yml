@@ -5,6 +5,13 @@ services:
     build: .
     image: ericfaris/tools:latest
     restart: unless-stopped
+    # Non-root, no privilege escalation, no Linux capabilities. App only writes
+    # to the /tmp tmpfs (mode 1777), so uid 1000 is fine.
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "127.0.0.1:8200:8000"
 
