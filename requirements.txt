@@ -1,7 +1,7 @@
 # Exact-pinned for reproducible, reviewable builds. Renovate (renovate.json)
 # opens a PR on each new release; bumps are CI-tested before they ship.
 fastapi==0.138.0
-uvicorn[standard]==0.49.0
+uvicorn[standard]==0.52.4
 python-multipart==0.0.32
 jinja2==3.1.4
 pypdf==5.1.0
