@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # System tools for the heavier converters get added here as those tools land
 # (e.g. ghostscript, imagemagick, ffmpeg, libreoffice-core, tesseract-ocr).
