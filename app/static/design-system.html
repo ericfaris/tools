@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tools · Design System — Drafting Table</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Showcase-only chrome. Everything with a .tile, .run, .dropzone, .option,
+     .swatch, .toast, .filter, .family-title class below is the app's REAL
+     CSS from styles.css — this block only adds the page scaffolding around
+     those real components (section rules, the token-grid layout, etc.) and
+     never overrides a design token itself. */
+  .ds-header {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: var(--space-4);
+    padding: var(--space-4) clamp(1rem, 4vw, 3rem);
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .ds-header h1 { font-family: var(--font-display); font-size: var(--text-base); margin: 0; }
+  .ds-header .sub { color: var(--ink-soft); font-size: var(--text-xs); font-family: var(--font-display); }
+  #theme-toggle {
+    margin-left: auto; font-family: var(--font-display); font-size: var(--text-xs);
+    text-transform: uppercase; letter-spacing: .08em;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    border-radius: var(--radius-pill); padding: .4rem .9rem; cursor: pointer;
+  }
+  #theme-toggle:hover { border-color: var(--blueprint); }
+
+  .ds-main { max-width: 1100px; margin: 0 auto; padding: var(--space-8) clamp(1rem, 4vw, 3rem) var(--space-16); }
+  .ds-section { margin-bottom: var(--space-16); }
+  .ds-section > h2 {
+    font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700;
+    margin: 0 0 var(--space-2); display: flex; align-items: baseline; gap: var(--space-3);
+  }
+  .ds-section > h2 .n { color: var(--blueprint); }
+  .ds-section > .lede { color: var(--ink-soft); font-size: var(--text-sm); margin: 0 0 var(--space-6); max-width: 62ch; }
+
+  .ds-token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--space-4); }
+  .ds-swatch {
+    border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden;
+    background: var(--panel); cursor: pointer; transition: transform var(--duration-fast), box-shadow var(--duration-fast);
+    font: inherit; text-align: left; padding: 0; display: block; width: 100%;
+  }
+  .ds-swatch:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+  .ds-swatch .chip { height: 3.5rem; border-bottom: 1px solid var(--line); }
+  .ds-swatch .meta { padding: var(--space-2) var(--space-3); }
+  .ds-swatch .name { font-family: var(--font-display); font-size: var(--text-xs); font-weight: 600; }
+  .ds-swatch .role { font-size: var(--text-xs); color: var(--ink-soft); }
+  .ds-swatch .token-value { font-family: var(--font-display); font-size: var(--text-xs); color: var(--blueprint); }
+  .ds-swatch.copied .token-value::after { content: " ✓ copied"; color: var(--good); }
+
+  .ds-type-row { display: flex; align-items: baseline; gap: var(--space-5); padding: var(--space-4) 0; border-bottom: 1px solid var(--line); }
+  .ds-type-row .label { flex: none; width: 9rem; font-family: var(--font-display); font-size: var(--text-xs); color: var(--ink-soft); }
+  .ds-type-row .sample { flex: 1; min-width: 0; }
+  .ds-type-row .meta { flex: none; font-family: var(--font-display); font-size: var(--text-xs); color: var(--blueprint); text-align: right; }
+
+  .ds-scale-row { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-2) 0; }
+  .ds-scale-row .box { background: var(--accent-soft); border: 1px dashed var(--accent); flex: none; }
+  .ds-scale-row .label { font-family: var(--font-display); font-size: var(--text-xs); color: var(--ink-soft); width: 7rem; }
+  .ds-radius-row .box { background: var(--panel); border: 2px solid var(--blueprint); height: 3rem; width: 3rem; flex: none; }
+
+  .ds-shadow-grid, .ds-motion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--space-5); }
+  .ds-shadow-card {
+    background: var(--panel); border-radius: var(--radius-lg); padding: var(--space-6);
+    font-family: var(--font-display); font-size: var(--text-xs); color: var(--ink-soft); text-align: center;
+  }
+  .ds-motion-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    padding: var(--space-6); text-align: center; cursor: pointer; user-select: none;
+    font-family: var(--font-display); font-size: var(--text-xs); color: var(--ink-soft);
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+  .ds-motion-card:hover { transform: scale(1.05); }
+  .ds-motion-card.stamp:active { transform: scale(.94); transition-timing-function: var(--ease-stamp); }
+  .ds-motion-card .swatch-face { font-size: 1.5rem; margin-bottom: var(--space-2); }
+
+  .ds-demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--space-6); align-items: start; }
+  .ds-demo-card { background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-5); }
+  .ds-demo-card > .cap { font-family: var(--font-display); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--blueprint); margin: 0 0 var(--space-3); }
+  .ds-run-states { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+
+  .ds-moodboards { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--space-5); }
+  .ds-moodboard { border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--panel); }
+  .ds-moodboard img { display: block; width: 100%; height: auto; }
+  .ds-moodboard .cap { padding: var(--space-3) var(--space-4); }
+  .ds-moodboard .cap h3 { margin: 0 0 .2rem; font-family: var(--font-display); font-size: var(--text-sm); }
+  .ds-moodboard .cap p { margin: 0; font-size: var(--text-xs); color: var(--ink-soft); }
+  .ds-moodboard.chosen { border-color: var(--accent); box-shadow: var(--shadow-md); }
+  .ds-moodboard.chosen .cap h3::after { content: " — chosen"; color: var(--accent); font-weight: 700; }
+
+  .ds-bg-sample { height: 10rem; border-radius: var(--radius-lg); border: 1px solid var(--line); }
+
+  /* --- Preview-theme override block -------------------------------------
+     Duplicates the *values already defined* in styles.css's :root and dark
+     media-query blocks, scoped under [data-preview-theme], purely so both
+     palettes can be inspected side-by-side on this page without touching
+     the OS color-scheme setting. The production app has no such toggle (see
+     DESIGN.md §2) — this exists only in this showcase file. */
+  :root[data-preview-theme="light"] {
+    --paper: #f2ecdd; --paper-soft: #ece3cd; --panel: #faf6ea; --panel-hover: #fffdf5;
+    --line: #cdbe97; --grid-line: rgba(47,111,158,.16);
+    --ink: #1c2530; --ink-soft: #5c6674; --ink-faint: #8b9099;
+    --blueprint: #2f6f9e; --blueprint-soft: rgba(47,111,158,.12);
+    --accent: #954e10; --accent-strong: #7a3f0c; --accent-soft: rgba(149,78,16,.14); --on-accent: #faf6ea;
+    --good: #3f7d4a; --danger: #a8402f; --danger-soft: rgba(168,64,47,.12);
+    --shadow-sm: 0 1px 2px rgba(28,37,48,.08); --shadow-md: 0 6px 20px rgba(28,37,48,.10); --shadow-lg: 0 16px 40px rgba(28,37,48,.16);
+  }
+  :root[data-preview-theme="dark"] {
+    --paper: #101c27; --paper-soft: #0c151e; --panel: #17293780; --panel-hover: #1d3244;
+    --line: #2c445a; --grid-line: rgba(110,195,230,.14);
+    --ink: #ecf1f4; --ink-soft: #9fb1c1; --ink-faint: #6d7f90;
+    --blueprint: #6ec3e6; --blueprint-soft: rgba(110,195,230,.14);
+    --accent: #e0a53c; --accent-strong: #f2b957; --accent-soft: rgba(224,165,60,.16); --on-accent: #101c27;
+    --good: #74c684; --danger: #e2685a; --danger-soft: rgba(226,104,90,.16);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.35); --shadow-md: 0 8px 24px rgba(0,0,0,.4); --shadow-lg: 0 20px 48px rgba(0,0,0,.5);
+  }
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+
+<header class="ds-header">
+  <h1>Tools — Design System</h1>
+  <span class="sub">“Drafting Table” · v1.0</span>
+  <button id="theme-toggle" aria-pressed="false" type="button">Preview: Light</button>
+</header>
+
+<main class="ds-main">
+
+  <section class="ds-section">
+    <p class="lede" style="max-width:70ch">
+      This page renders every token and component live from the app's actual
+      <code>styles.css</code> and self-hosted fonts — nothing here is a
+      redrawn mockup. See <code>/DESIGN.md</code> at the repo root for the
+      full narrative and rationale. Use the toggle above to audit both
+      palettes; the real app has no such switch and simply follows your
+      OS's color scheme.
+    </p>
+  </section>
+
+  <section class="ds-section" id="color">
+    <h2><span class="n">01</span> Color</h2>
+    <p class="lede">Every token, its role, and its live computed value in the current preview scheme. Click a swatch to copy its hex/value.</p>
+    <div class="ds-token-grid">
+      <button class="ds-swatch" data-token="--paper" data-hex="#f2ecdd" style="--sw:var(--paper)">
+        <div class="chip" style="background:var(--paper)"></div>
+        <div class="meta"><div class="name">--paper</div><div class="role">Page background</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--paper-soft">
+        <div class="chip" style="background:var(--paper-soft)"></div>
+        <div class="meta"><div class="name">--paper-soft</div><div class="role">Recessed surfaces</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--panel">
+        <div class="chip" style="background:var(--panel)"></div>
+        <div class="meta"><div class="name">--panel</div><div class="role">Card / panel surface</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--panel-hover">
+        <div class="chip" style="background:var(--panel-hover)"></div>
+        <div class="meta"><div class="name">--panel-hover</div><div class="role">Card hover surface</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--line">
+        <div class="chip" style="background:var(--line)"></div>
+        <div class="meta"><div class="name">--line</div><div class="role">Hairline border</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--ink">
+        <div class="chip" style="background:var(--ink)"></div>
+        <div class="meta"><div class="name">--ink</div><div class="role">Primary text</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--ink-soft">
+        <div class="chip" style="background:var(--ink-soft)"></div>
+        <div class="meta"><div class="name">--ink-soft</div><div class="role">Secondary text</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--ink-faint">
+        <div class="chip" style="background:var(--ink-faint)"></div>
+        <div class="meta"><div class="name">--ink-faint</div><div class="role">Tertiary / footer text</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--blueprint">
+        <div class="chip" style="background:var(--blueprint)"></div>
+        <div class="meta"><div class="name">--blueprint</div><div class="role">Secondary accent, focus, links</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--accent">
+        <div class="chip" style="background:var(--accent)"></div>
+        <div class="meta"><div class="name">--accent</div><div class="role">Primary accent — Run button, marks</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--accent-strong">
+        <div class="chip" style="background:var(--accent-strong)"></div>
+        <div class="meta"><div class="name">--accent-strong</div><div class="role">Accent hover/press</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--on-accent">
+        <div class="chip" style="background:var(--on-accent)"></div>
+        <div class="meta"><div class="name">--on-accent</div><div class="role">Text/border sitting on --accent</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--good">
+        <div class="chip" style="background:var(--good)"></div>
+        <div class="meta"><div class="name">--good</div><div class="role">Success (reserved)</div><div class="token-value"></div></div>
+      </button>
+      <button class="ds-swatch" data-token="--danger">
+        <div class="chip" style="background:var(--danger)"></div>
+        <div class="meta"><div class="name">--danger</div><div class="role">Error text</div><div class="token-value"></div></div>
+      </button>
+    </div>
+  </section>
+
+  <section class="ds-section" id="type">
+    <h2><span class="n">02</span> Type</h2>
+    <p class="lede">JetBrains Mono (display/technical) + Archivo (body), both self-hosted from <code>app/static/fonts/</code>. Real <code>@font-face</code> declarations, no substitute font.</p>
+
+    <div class="ds-type-row">
+      <div class="label">--text-3xl</div>
+      <div class="sample" style="font-family:var(--font-display); font-size:var(--text-3xl); line-height:var(--lh-tight); font-weight:700;">Your tools.</div>
+      <div class="meta" data-token="--text-3xl"><span class="token-value"></span></div>
+    </div>
+    <div class="ds-type-row">
+      <div class="label">--text-xl</div>
+      <div class="sample" style="font-family:var(--font-display); font-size:var(--text-xl); font-weight:700;">Section heading</div>
+      <div class="meta" data-token="--text-xl"><span class="token-value"></span></div>
+    </div>
+    <div class="ds-type-row">
+      <div class="label">--text-lg</div>
+      <div class="sample" style="font-family:var(--font-display); font-size:var(--text-lg); font-weight:700;">Merge PDFs</div>
+      <div class="meta" data-token="--text-lg"><span class="token-value"></span></div>
+    </div>
+    <div class="ds-type-row">
+      <div class="label">--text-md</div>
+      <div class="sample" style="font-family:var(--font-body); font-size:var(--text-md);">A calm, uncluttered tool page lede.</div>
+      <div class="meta" data-token="--text-md"><span class="token-value"></span></div>
+    </div>
+    <div class="ds-type-row">
+      <div class="label">--text-base</div>
+      <div class="sample" style="font-family:var(--font-body); font-size:var(--text-base);">Body copy sets in Archivo at the base size.</div>
+      <div class="meta" data-token="--text-base"><span class="token-value"></span></div>
+    </div>
+    <div class="ds-type-row">
+      <div class="label">--text-sm</div>
+      <div class="sample" style="font-family:var(--font-body); font-size:var(--text-sm); color:var(--ink-soft);">Tile and tool descriptions, help text.</div>
+      <div class="meta" data-token="--text-sm"><span class="token-value"></span></div>
+    </div>
+    <div class="ds-type-row">
+      <div class="label">--text-xs (mono)</div>
+      <div class="sample" style="font-family:var(--font-display); font-size:var(--text-xs); text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft);">Labels · footer · badges</div>
+      <div class="meta" data-token="--text-xs"><span class="token-value"></span></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="spacing">
+    <h2><span class="n">03</span> Spacing &amp; radius</h2>
+    <p class="lede">4px base spacing scale, and a deliberately crisp radius scale (nothing bubbly — this is a drafted sheet, not a bubble UI).</p>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-8);">
+      <div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-1); height:1rem;"></div><div class="label">--space-1</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-2); height:1rem;"></div><div class="label">--space-2</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-3); height:1rem;"></div><div class="label">--space-3</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-4); height:1rem;"></div><div class="label">--space-4</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-5); height:1rem;"></div><div class="label">--space-5</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-6); height:1rem;"></div><div class="label">--space-6</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-8); height:1rem;"></div><div class="label">--space-8</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-10); height:1rem;"></div><div class="label">--space-10</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-12); height:1rem;"></div><div class="label">--space-12</div></div>
+        <div class="ds-scale-row"><div class="box" style="width:var(--space-16); height:1rem;"></div><div class="label">--space-16</div></div>
+      </div>
+      <div class="ds-radius-row" style="display:flex; flex-wrap:wrap; gap:var(--space-5);">
+        <div style="text-align:center;"><div class="box" style="border-radius:var(--radius-sm);"></div><div class="label" style="width:auto;margin-top:.4rem;">--radius-sm</div></div>
+        <div style="text-align:center;"><div class="box" style="border-radius:var(--radius-md);"></div><div class="label" style="width:auto;margin-top:.4rem;">--radius-md</div></div>
+        <div style="text-align:center;"><div class="box" style="border-radius:var(--radius-lg);"></div><div class="label" style="width:auto;margin-top:.4rem;">--radius-lg</div></div>
+        <div style="text-align:center;"><div class="box" style="border-radius:var(--radius-pill); width:5rem;"></div><div class="label" style="width:auto;margin-top:.4rem;">--radius-pill</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="shadow-motion">
+    <h2><span class="n">04</span> Shadow &amp; motion</h2>
+    <p class="lede">Hover or click each card below — the transition it names is the one actually applied, not a description of it.</p>
+    <div class="ds-shadow-grid" style="margin-bottom: var(--space-6);">
+      <div class="ds-shadow-card" style="box-shadow: var(--shadow-sm);">--shadow-sm<br>resting state</div>
+      <div class="ds-shadow-card" style="box-shadow: var(--shadow-md);">--shadow-md<br>hover / lift</div>
+      <div class="ds-shadow-card" style="box-shadow: var(--shadow-lg);">--shadow-lg<br>toast / deepest</div>
+    </div>
+    <div class="ds-motion-grid">
+      <div class="ds-motion-card"><div class="swatch-face">▤ → hover me</div>--ease-out / --duration-base<br>(tile lift)</div>
+      <div class="ds-motion-card stamp"><div class="swatch-face">◆ click &amp; hold</div>--ease-stamp / --duration-fast<br>(Run button press)</div>
+      <div class="ds-motion-card" style="transition-duration: var(--duration-slow);"><div class="swatch-face">— hover me —</div>--duration-slow<br>(brand underline draw)</div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="components">
+    <h2><span class="n">05</span> Components</h2>
+    <p class="lede">Real markup and classes from <code>app/templates/</code> and <code>app/static/styles.css</code> — not redrawn approximations.</p>
+
+    <div class="ds-demo-grid">
+      <div class="ds-demo-card">
+        <p class="cap">Portal tile — default / hover (try it)</p>
+        <div class="grid" style="grid-template-columns: 1fr;">
+          <a class="tile" href="#" onclick="return false" style="--i:0">
+            <span class="tile-icon">🧩</span>
+            <span class="tile-name">Merge PDFs</span>
+            <span class="tile-desc">Combine several PDFs into one, in the order you add them.</span>
+            <span class="tile-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Family heading rule</p>
+        <h2 class="family-title" style="margin:0;">PDF</h2>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Filter input</p>
+        <input class="filter" type="search" placeholder="Search tools…" style="min-width:100%; margin:0;">
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Dropzone — click to toggle drag-over state</p>
+        <label class="dropzone" tabindex="0" id="demo-dropzone">
+          <span class="dz-icon">⬇</span>
+          <span class="dz-text">Drop a file here</span>
+          <span class="dz-sub">or click to browse</span>
+        </label>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Option field</p>
+        <div class="options">
+          <div class="option">
+            <label>Output format</label>
+            <select><option>PDF</option><option>ZIP</option></select>
+            <small>Choose how the result is packaged.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Run button — every state (click to simulate a run)</p>
+        <div class="ds-run-states">
+          <button class="run" id="demo-run" type="button"><span class="run-label">Run</span><span class="run-spinner" aria-hidden="true"></span></button>
+          <button class="run" disabled type="button"><span class="run-label">Run</span><span class="run-spinner" aria-hidden="true"></span></button>
+        </div>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Error text</p>
+        <p class="error">This file isn't a valid PDF.</p>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Color-swatch result (Color Picker tool)</p>
+        <div class="swatches">
+          <button type="button" class="swatch" style="--c:#954e10;"><span class="chip" style="background:#954e10"></span><code>#954E10</code></button>
+          <button type="button" class="swatch" style="--c:#2f6f9e;"><span class="chip" style="background:#2f6f9e"></span><code>#2F6F9E</code></button>
+        </div>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Toast (click to trigger)</p>
+        <button class="run" id="demo-toast-btn" type="button" style="padding:.6rem 1.2rem;"><span class="run-label">Show toast</span></button>
+      </div>
+
+      <div class="ds-demo-card">
+        <p class="cap">Footer version badge</p>
+        <span class="footer-version">v0.3.0</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="background">
+    <h2><span class="n">06</span> Background &amp; texture</h2>
+    <p class="lede">The drafting-grid page backdrop (<code>.aurora</code>) — real CSS gradients, not an image, so it stays crisp at any zoom.</p>
+    <div class="ds-bg-sample aurora" style="position:static;"></div>
+  </section>
+
+  <section class="ds-section" id="moodboards">
+    <h2><span class="n">07</span> Mood boards</h2>
+    <p class="lede">Three directions generated for this pass (see <code>DESIGN.md</code> §1 for the full comparison). Drafting Table was chosen for fitting the app's actual purpose — a calm, precise, self-hosted privacy tool — better than the alternatives' heavier/more niche registers.</p>
+    <div class="ds-moodboards">
+      <div class="ds-moodboard chosen">
+        <img src="design/moodboards/drafting-table.webp" alt="Drafting Table mood board" loading="lazy">
+        <div class="cap"><h3>Drafting Table</h3><p>Warm cream + blueprint grid, stamp button, hand-drafted lettering. Calm, precise, craft.</p></div>
+      </div>
+      <div class="ds-moodboard">
+        <img src="design/moodboards/vault-ledger.webp" alt="Vault Ledger mood board" loading="lazy">
+        <div class="cap"><h3>Vault Ledger</h3><p>Charcoal + brass, engraved serif. Reads as banking/security, not everyday tools.</p></div>
+      </div>
+      <div class="ds-moodboard">
+        <img src="design/moodboards/field-kit.webp" alt="Field Kit mood board" loading="lazy">
+        <div class="cap"><h3>Field Kit</h3><p>Olive + safety-orange, stencil type. Rugged toolbox — fun, but the stencil face is illegible at UI sizes.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <p class="lede">Toast, spinner, and confetti demos aside, this page has no build step — open it directly from <code>app/static/design-system.html</code>, or at <code>/static/design-system.html</code> on a running instance.</p>
+  </section>
+
+</main>
+
+<div id="demo-toast" class="toast" hidden>Copied #954E10</div>
+
+<script src="design-system.js"></script>
+</body>
+</html>

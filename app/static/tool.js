@@ -185,7 +185,7 @@
     canvas.height = innerHeight * dpr;
     ctx.scale(dpr, dpr);
 
-    const colors = ["#7c5cff", "#2dd4bf", "#ffd166", "#ff6b6b", "#9a7bff"];
+    const colors = ["#b6651d", "#2f6f9e", "#3f7d4a", "#cdbe97", "#1c2530"];
     const parts = Array.from({ length: 140 }, () => ({
       x: innerWidth / 2,
       y: innerHeight / 3,
