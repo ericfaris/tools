@@ -320,15 +320,17 @@ elevation in the system.
     direction).
   - `field-kit.webp` — rejected alternate (industrial toolbox/stencil
     direction).
-- **Favicon** (`app/static/favicon.svg`, rasterized to
-  `app/static/favicon-32.png` and `app/static/favicon.ico`) — redesigned
-  from the old purple/teal gradient diamond to a hand-authored SVG drafting
-  compass/divider: ink-navy legs open over an amber pivot point, with a
-  blueprint dashed baseline rule, on the cream paper token color. Drawn as
-  crisp geometry (not a raster illustration) because a technical instrument
-  mark reads better at 16px than a photorealistic icon would. Rasterized via
-  Pillow (supersampled 8x, then downscaled) since no SVG rasterizer was
-  available in the environment; ICO built with 16/32/48/64px frames.
+- **App icon / favicon** — *house icon standard (2026-10-16)*, shared with every
+  mooseflip app and modelled on redline and jambo: one bold, dimensional mark on
+  a rich tile. Tools keeps its drafting-compass identity: steel dividers with an
+  amber pivot and ink grip, one needle leg and one rust lead holder, over a
+  dashed baseline on a blueprint-blue gridded tile. Master
+  `scripts/icons/icon.svg`; `python3 scripts/icons/build.py` renders
+  `app/static/favicon.ico` (16/32/48, served at `/favicon.ico`),
+  `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` and
+  `icon-maskable-512.png`, wired in `base.html` and
+  `app/static/manifest.webmanifest` (`tests/test_icons.py` guards it).
+  It replaces the flat 2026-09-14 `favicon.svg` / `favicon-32.png`.
 
 ---
 
@@ -363,9 +365,8 @@ elevation in the system.
 | `app/templates/base.html` | Font preloads + favicon `<link>` tags added |
 | `app/static/fonts/jbmono-{400,500,600,700}.woff2` | Self-hosted JetBrains Mono, static per-weight files |
 | `app/static/fonts/archivo-{400,500,600,700}.woff2` | Self-hosted Archivo, static per-weight files |
-| `app/static/favicon.svg` | Redesigned drafting-compass mark (source of truth) |
-| `app/static/favicon-32.png` | Rasterized 32px PNG icon (new `<link>`) |
-| `app/static/favicon.ico` | Rasterized multi-size ICO (16/32/48/64px), regenerated |
+| `scripts/icons/icon.svg`, `build.py` | App icon master + renderer (house standard, 2026-10-16) |
+| `app/static/favicon.ico`, `apple-touch-icon.png`, `icon-{192,512}.png`, `icon-maskable-512.png`, `manifest.webmanifest` | App icon set (§6) |
 | `app/static/design/moodboards/drafting-table.webp` | Chosen direction's mood board |
 | `app/static/design/moodboards/vault-ledger.webp` | Rejected alternate |
 | `app/static/design/moodboards/field-kit.webp` | Rejected alternate |
@@ -406,3 +407,7 @@ extending the system later.
   `/static/design-system.html` showcase. No template markup or app logic was
   changed — this pass touched only `styles.css`, `tool.js`'s confetti
   palette, and `base.html`'s `<head>` (font preloads + icon links).
+- **2026-10-16** — App icon moved to the house icon standard shared by every
+  mooseflip app: a dimensional drafting compass on blueprint, rendered from
+  `scripts/icons/icon.svg` (favicon.ico, apple-touch-icon, 192/512, maskable),
+  plus a web manifest and `theme-color` in `base.html`.
