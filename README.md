@@ -59,7 +59,6 @@ All config is via environment variables (see `app/config.py` / `.env.example`):
 |----------|---------|---------|
 | `AUTH_USER` / `AUTH_PASS` | — | Single-credential HTTP Basic Auth (blank = no auth) |
 | `AUTH_USERS` | — | `user:pass,user2:pass2` multi-user (takes precedence) |
-| `BASE_URL` | `http://localhost:8000` | Public URL of the portal |
 | `MAX_UPLOAD_BYTES` | `104857600` | Max upload size per request (100 MB) |
 | `MAX_UPLOAD_FILES` | `100` | Max file parts accepted per request |
 | `MAX_FORM_FIELDS` | `100` | Max non-file form fields per request |

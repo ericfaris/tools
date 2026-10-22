@@ -23,9 +23,6 @@ services:
       - /tmp:size=512m
 
     environment:
-      # External URL where the portal is reachable (via Cloudflare Tunnel)
-      - BASE_URL=https://tools.mooseflip.com
-
       # HTTP Basic Auth. For friends & family, give each person their own
       # credential: AUTH_USERS=alice:pass1,bob:pass2 (takes precedence).
       - AUTH_USERS=${AUTH_USERS:-}
