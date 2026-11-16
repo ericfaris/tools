@@ -1,14 +1,29 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "labels": ["dependencies"],
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": [
+    "dependencies"
+  ],
   "pip_requirements": {
-    "managerFilePatterns": ["/requirements.txt/"]
+    "managerFilePatterns": [
+      "/requirements.txt/"
+    ]
   },
   "packageRules": [
     {
-      "matchManagers": ["pip_requirements"],
+      "matchManagers": [
+        "pip_requirements"
+      ],
       "rangeStrategy": "pin"
+    },
+    {
+      "description": "pymupdf 2.x requires onnxruntime, which has no Python 3.15 wheel yet (PR #36 failed pytest at install, 2026-11-16). Hold on 1.x; drop this rule once onnxruntime ships cp315 wheels.",
+      "matchPackageNames": [
+        "pymupdf"
+      ],
+      "allowedVersions": "<2"
     }
   ]
 }
